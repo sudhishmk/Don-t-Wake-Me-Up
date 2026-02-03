@@ -26,33 +26,32 @@ kubectl apply -f [https://storage.googleapis.com/tekton-releases/pipeline/latest
 # Install Argo Events (Namespace first to avoid race conditions)
 kubectl create namespace argo-events
 kubectl apply -f [https://raw.githubusercontent.com/argoproj/argo-events/stable/manifests/install.yaml](https://raw.githubusercontent.com/argoproj/argo-events/stable/manifests/install.yaml)
+```
 
-Markdown
-# Verify Installation:
+#### Verify Installation:
 Ensure all pods in argo-events and tekton-pipelines are Running.
 
-**Bash**
 ```bash
 kubectl get pods -n argo-events
 kubectl get pods -n tekton-pipelines
+```
 
-
-2. Deploy the "Broken" App
+### 2. Deploy the "Broken" App
 We will deploy a simple Nginx app that we pretend has a memory leak.
 
-Bash
-
-Bash
+```bash
 kubectl create deployment leaky-app --image=nginx --replicas=1
-📄 Manifests
+```
+
+## 📄 Manifests
+
 Apply the following manifests to configure the remediation loop.
 
-1. RBAC Permissions (rbac.yaml)
+### 1. RBAC Permissions (rbac.yaml)
+
 Allows the remediation ServiceAccount to manage pods and allows the Sensor to trigger tasks.
 
-YAML
-
-YAML
+```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -92,12 +91,13 @@ roleRef:
   kind: ClusterRole
   name: admin
   apiGroup: rbac.authorization.k8s.io
-2. The Remediation Runbook (remediation-task.yaml)
+```
+  
+### 2. The Remediation Runbook (remediation-task.yaml)
+
 The Tekton Task that performs the actual fix (deleting the pod).
 
-YAML
-
-YAML
+```yaml
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
@@ -115,12 +115,13 @@ spec:
           echo "🚨 Alert Received! Restarting application: $(params.app-label)..."
           kubectl delete pods -l app=$(params.app-label)
           echo "✅ Remediation Complete."
-3. The Event Bus (eventbus.yaml)
+          
+```
+
+### 3. The Event Bus (eventbus.yaml)
 Required for Argo Events internal communication.
 
-YAML
-
-YAML
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: EventBus
 metadata:
@@ -129,12 +130,12 @@ spec:
   nats:
     native:
       auth: token
-4. The Event Source (webhook-source.yaml)
+```
+
+### 4. The Event Source (webhook-source.yaml)
 Listens for HTTP POST requests (simulating an alert).
 
-YAML
-
-YAML
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: EventSource
 metadata:
@@ -149,12 +150,12 @@ spec:
       port: "12000"
       method: "POST"
       endpoint: "/remediate"
-5. The Sensor (sensor.yaml)
+```
+
+### 5. The Sensor (sensor.yaml)
 Connects the EventSource to the Tekton Task.
 
-YAML
-
-YAML
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Sensor
 metadata:
@@ -184,47 +185,50 @@ spec:
                 params:
                   - name: app-label
                     value: "leaky-app"
-📥 Apply All Manifests
-Bash
+```
 
-Bash
+#### 📥 Apply All Manifests
+
+```bash
 kubectl apply -f rbac.yaml
 kubectl apply -f remediation-task.yaml
 kubectl apply -f eventbus.yaml
 kubectl apply -f webhook-source.yaml
 kubectl apply -f sensor.yaml
-🎬 Running the Demo
-1. Wait for Components
+```
+
+## 🎬 Running the Demo
+
+### 1. Wait for Components
 Ensure the EventBus, EventSource, and Sensor pods are running.
 
-Bash
-
-Bash
+```bash
 kubectl get pods
 Note: If the Sensor or EventSource pods are in CrashLoopBackOff, delete them once the EventBus is Running to restart them.
+```
 
-2. Port Forward the Listener
+### 2. Port Forward the Listener
 Open a tunnel to the EventSource so you can trigger it from your laptop.
 
-Bash
-
-Bash
+```bash
 kubectl port-forward $(kubectl get pod -l eventsource-name=webhook -o name) 12000:12000
-3. Watch the Magic
+```
+
+### 3. Watch the Magic
 Open a new terminal to watch the pods react.
 
-Bash
-
-Bash
+```bash
 watch kubectl get pods
-4. Trigger the Incident
+```
+
+### 4. Trigger the Incident
 In a third terminal, send the mock alert signal.
 
-Bash
-
-Bash
+```bash
 curl -d '{"message":"Memory High"}' -H "Content-Type: application/json" -X POST http://localhost:12000/remediate
-Expected Result:
+```
+
+## Expected Result:
 
 A new auto-remediate-xxxxx TaskRun pod appears.
 
@@ -232,7 +236,7 @@ The leaky-app pod is terminated and restarted.
 
 The output of the TaskRun logs will show: ✅ Remediation Complete.
 
-🐛 Troubleshooting
+# 🐛 Troubleshooting
 "Error: namespaces argo-events not found"
 
 Run kubectl create ns argo-events manually before installing the manifest.
@@ -240,8 +244,7 @@ Run kubectl create ns argo-events manually before installing the manifest.
 "Sensor / EventSource in CrashLoopBackOff"
 
 This is a race condition where they tried to start before the NATS EventBus was ready.
-
+```bash
 Fix: kubectl delete pod -l sensor-name=remediation-sensor and kubectl delete pod -l eventsource-name=webhook. They will recreate instantly and connect.
+```
 
-
-Would you like me to generate a diagram of how these components (EventSource -> Sensor -> Tekton
