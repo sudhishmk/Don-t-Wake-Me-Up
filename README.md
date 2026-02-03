@@ -230,18 +230,19 @@ curl -d '{"message":"Memory High"}' -H "Content-Type: application/json" -X POST 
 
 ## Expected Result:
 
-A new auto-remediate-xxxxx TaskRun pod appears.
+1. A new auto-remediate-xxxxx TaskRun pod appears.
 
-The leaky-app pod is terminated and restarted.
+2. The leaky-app pod is terminated and restarted.
 
-The output of the TaskRun logs will show: ✅ Remediation Complete.
+3. The output of the TaskRun logs will show: ✅ Remediation Complete.
 
 # 🐛 Troubleshooting
-"Error: namespaces argo-events not found"
+
+1. "Error: namespaces argo-events not found" while installing argo events manifest.
 
 Run kubectl create ns argo-events manually before installing the manifest.
 
-"Sensor / EventSource in CrashLoopBackOff"
+2. "Sensor / EventSource in CrashLoopBackOff" pods not starting
 
 This is a race condition where they tried to start before the NATS EventBus was ready.
 ```bash
