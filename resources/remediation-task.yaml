@@ -1,0 +1,18 @@
+# remediation-task.yaml
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: restart-deployment
+spec:
+  params:
+    - name: app-label
+      description: "The label value of the app to restart (e.g., leaky-app)"
+  steps:
+    - name: restart
+      image: bitnami/kubectl:latest
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "🚨 Alert Received! Restarting application: $(params.app-label)..."
+          kubectl delete pods -l app=$(params.app-label)
+          echo "✅ Remediation Complete."

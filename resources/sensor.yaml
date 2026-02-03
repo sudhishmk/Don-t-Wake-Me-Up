@@ -1,0 +1,30 @@
+# sensor.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: remediation-sensor
+spec:
+  template:
+    serviceAccountName: remediation-sa # Sensor needs permissions too!
+  dependencies:
+    - name: test-dep
+      eventSourceName: webhook
+      eventName: remediate
+  triggers:
+    - template:
+        name: trigger-tekton
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: tekton.dev/v1beta1
+              kind: TaskRun
+              metadata:
+                generateName: auto-remediate-
+              spec:
+                serviceAccountName: remediation-sa
+                taskRef:
+                  name: restart-deployment
+                params:
+                  - name: app-label
+                    value: "leaky-app" # In a real demo, we extract this from the alert payload!
